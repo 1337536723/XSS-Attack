@@ -1,0 +1,5 @@
+task1、task2、task3和task6的代码直接复制粘贴到攻击者profile的任意字段保存即可(注意About Me编辑区要先转换为源码格式)。
+
+task4需要结合echoserv程序监听5555端口，把监听得到的cookie，timestamp和token复制到HTTPSimpleForge.java文件中，然后使用javac编译再用java命令运行.class文件即可。
+
+task5的js文件需要在Apache服务中先进行www.example.com站点的配置，然后放入该站点的资源目录下即可。

