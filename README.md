@@ -99,4 +99,45 @@ Alice点开Boby的Profile页面时，这段Javascript会被动态加载并执行
 
 这次当Alice打开Boby的profile页是，img标签的GET请求会被触发，并把Alice的Cookie按照我们设定的方式附加到URL后面。这样在tcp server中被监听的5555端口就会收到这个请求了。打印出来可以看到Alice在Elgg站点的Cookie信息。
 
+## Session Hijacking using the Stolen Cookies
+
+该任务要求使用Java编写一个程序，利用盗取到的Cookie冒充用户，把samy添加为好友。注意这个Task需要使用两台主机，用户在主机A登录，攻击者在主机B登录，攻击需要在主机B上进行。特别地，为了保证从主机A和主机B访问的都是同意站点，要在主机B的hosts文件中对站点的ip地址进行修改，使其指向主机A的apache服务器中的[www.xsselgg.com](www.xsselgg.com)站点：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image41.png)
+
+接续上面的故事，Boby拿到Alice的Cookie后不太会用，于是他找到了传说中的黑客老大Samy帮忙：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image42.png)
+
+Samy不管三七二十一决定先让Alice添加自己为好友再说，通过XSS漏洞实现这一点，在CSRF实验中已经提到了在网站内部可以通过Javascript的变量elgg.security.token.__elgg_ts和elgg.security.token.__elgg_token提取出timestamp和token，把它们加入到攻击代码的GET请求中，这样在攻击者的主机监听5555端口时，如果Alice看了Samy的Profile我们就能得到Alice的Cookie，timestamp和token了，有了这三样法宝，就可以为所欲为了~~
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image43.png)
+
+要使用Java构造一个添加好友的GET请求，就要先了解这个请求包的结构，使用Live HTTP Header插件抓包观测，可以得到下图，高亮的部分是我们需要填充到包里面的，其中User-Agent字段修改为Sun JDK 1.6，Cookie字段修改为我们使用TCP server监听到的Alice的Cookie即可：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image44.png)
+
+对应的代码段：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image45.png)
+
+代码骨干已经提供好了，但源代码中只有User-agent字段，我们照样把抓包对应的字段填好就可以了。然后和Task3类似，使用TCP Server抓取GET请求：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image46.png)
+
+得到Alice的Cookie，timestamp以及token，特别注意Cookie中%3D要换为=号，这个对照一下前面Live HTTP Header抓包内容就知道了。依次用抓到的内容填写好代码段对应的部分：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image47.png)
+
+最后编辑java文件，然后执行：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image48.png)
+
+此时返回的会是一个HTML页面，看到Response Code=200就意味着添加好友这个HTTP请求成功了。再回到Alice的页面查看：
+
+![XSS4](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image49.png)
+
+果然黑客老大Samy已经变成了Alice的好友~
+
+
 
