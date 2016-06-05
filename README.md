@@ -74,3 +74,14 @@ XSS则不需要诱导用户浏览恶意网站，它是直接利用网站设计�
 ![XSS1](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image36.png)
 
 Alice点开Boby的Profile页面时，这段Javascript会被动态加载并执行，这样Boby就顺利完成表白了~
+
+## Posting a Malicious Message to Display Cookies
+
+该任务和Task1类似，只是输出内容变为输出打开Profile页的用户的Cookie。
+
+因为Alice果断没有接受Boby的表白，Boby黑化了，决定吓唬一下Alice，告诉Alice他可以获取到她的隐私信息。简单修改alert window的输出即可：
+
+![XSS2](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image37.png)
+
+![XSS2](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image38.png)
+
