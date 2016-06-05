@@ -52,3 +52,25 @@ XSS则不需要诱导用户浏览恶意网站，它是直接利用网站设计�
 ###为什么拿到Cookie后可以冒充用户？
 
 首先理解Cookie的作用，它可以理解为用户登录网站后生成的一个认证凭据，被保存在本地(即客户端)，当用户再次浏览同一网站并发起请求时，Cookie会被附加到请求包中易并发给网站的HTTP Server。一些网站会把用户的帐号和密码等信息存入本地的Cookie中，如果用户没有注销，Cookie就可以一直使用，下次再打开网站时浏览器会自动调用Cookie，这样用户就不需要再次输入登录信息了。 如果Cookie被攻击者利用XSS的手段窃取到了，攻击者就可以冒充用户登录，然后执行所有用户被允许执行的操作，从而盗取或篡改用户数据。
+
+## Posting a Malicious Message to Display an Alert Window
+
+该任务要求把一段简单的JavaScript程序嵌入攻击者的简介中，使得别的用户浏览攻击者的简介时，会弹出一个alert window。实现很简单，直接把下面这行代码填写在Brief description中就可以了：
+
+![XSS1](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image33.png)
+
+如果要实现更强大的功能，代码段就会比较长，而描述字段一般有字数限制，这时我们可以把JavaScript程序单独编写为一个.js代码文件，然后在网站的描述中使用script标签的src属性来引用，这样用户打开攻击者的profile页时，.js文件会被自动触发执行：
+
+![XSS1](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image34.png)
+
+上面代码中的[www.example.com](www.example.com)可以替换为任何其他网页服务器。
+
+这里假设Boby想跟Alice表白，于是他在自己的简介中嵌入了一段JavaScript：
+
+![XSS1](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image35.png)
+
+然后提交更改(注意使用[www.xsslabelgg.com](www.xsslabelgg.com)而非[www.csrflabelgg.com](www.csrflabelgg.com)，否则脚本代码提交时会被识别出并修改为文本段(把script标签修改为p标签)。
+
+![XSS1](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image36.png)
+
+Alice点开Boby的Profile页面时，这段Javascript会被动态加载并执行，这样Boby就顺利完成表白了~
