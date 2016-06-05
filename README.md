@@ -85,3 +85,18 @@ Alice点开Boby的Profile页面时，这段Javascript会被动态加载并执行
 
 ![XSS2](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image38.png)
 
+## Stealing Cookies from the Victim’s Machine
+
+该任务是Task2的升级版，因为Task2仅仅是让Cookie信息显示在客户端，攻击者并没有拿到用户的Cookie。要实现这个功能，我们就需要Javascript代码能够把cookie发给攻击者，可以通过发送一个附带着用户Cookie的HTTP请求来实现。具体来说，可以借助img标签的src属性来发起对攻击者机器IP的GET请求，这个请求会在用户打开攻击者profile页面时发出。只要在攻击者机器上捕捉这个HTTP请求包我们就能够得到用户的Cookie了。从实现上来说，实验文件已经提供了编写好的TCP服务器程序，我们可以设置用来监听指定的端口，并且输出监听到的信息。
+
+接续上面的故事，Alice还是没理会Boby。于是Boby狠下心来决定盗取Alice的隐私信息。这里因为Brief description比较短，所以我把代码放在About me字段中。注意IP地址要修改为Boby机器的IP地址，以及引号要符合对称规则。特别地，About me的输入区要转换为源代码格式：
+
+![XSS3](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image39.png)
+
+然后在Boby的机器上(实验中我用了同一台机器)运行提供好的tcp server程序，并且指定端口参数为5555。接下来静候佳音即可：
+
+![XSS3](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image40.png)
+
+这次当Alice打开Boby的profile页是，img标签的GET请求会被触发，并把Alice的Cookie按照我们设定的方式附加到URL后面。这样在tcp server中被监听的5555端口就会收到这个请求了。打印出来可以看到Alice在Elgg站点的Cookie信息。
+
+
